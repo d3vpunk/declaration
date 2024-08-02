@@ -56,14 +56,15 @@ echo
 update_crontab() {
     local tempfile=$(mktemp)
     crontab -l > "$tempfile" 2>/dev/null || true
+
     if grep -q "$script_pad" "$tempfile"; then
-        # Escape speciale karakters in het cron commando
-        escaped_cmd=$(printf '%s\n' "$cron_cmd" | sed 's:[][\/.^$*]:\\&:g')
-        sed -i.bak "/.*$script_pad.*/c\\$escaped_cmd" "$tempfile"
+        awk -v cmd="$cron_cmd" -v path="$script_pad" '
+        $0 ~ path {print cmd; next}
+        {print}
+        ' "$tempfile" > "${tempfile}.new" && mv "${tempfile}.new" "$tempfile"
+
         if [ $? -ne 0 ]; then
             echo "Er is een fout opgetreden bij het bijwerken van de bestaande cron job."
-            echo "Foutmelding van sed:"
-            sed "/.*$script_pad.*/c\\$escaped_cmd" "$tempfile"
             return 1
         fi
         echo "Bestaande cron job bijgewerkt."
@@ -71,6 +72,7 @@ update_crontab() {
         echo "$cron_cmd" >> "$tempfile"
         echo "Nieuwe cron job toegevoegd."
     fi
+
     if crontab "$tempfile"; then
         echo "Crontab succesvol bijgewerkt."
     else
