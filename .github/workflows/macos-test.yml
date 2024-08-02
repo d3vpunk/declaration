@@ -1,0 +1,17 @@
+name: Test Script on macOS
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Make script executable
+        run: chmod +x declaration-call.bash
+
+      - name: Run the script
+        run: ./declaration-call.bash arg1=value1 arg2=value2
