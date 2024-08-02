@@ -1,17 +1,60 @@
-name: Test Script on macOS
+name: Test Gateway Check Script
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   test:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-      - name: Make script executable
-        run: chmod +x declaration-call.bash
+      - name: Install jq
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get update && sudo apt-get install -y jq
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install jq
+          fi
 
-      - name: Run the script
-        run: ./declaration-call.bash arg1=value1 arg2=value2
+      - name: Set up mock gateway
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo ip route add default via 172.16.16.1
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            sudo route add -net 0.0.0.0 172.16.16.1
+          fi
+
+      - name: Run script with matching gateway
+        run: |
+          chmod +x ./gateway_check.sh
+          ./gateway_check.sh kilometers=120 email="test@example.com" fromLocation="Work" toLocation="Home" activity="commute" firstname="John" lastname="Doe"
+        env:
+          MOCK_CURL: "echo '200'"
+
+      - name: Set up non-matching gateway
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo ip route del default
+            sudo ip route add default via 192.168.1.1
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            sudo route delete default
+            sudo route add -net 0.0.0.0 192.168.1.1
+          fi
+
+      - name: Run script with non-matching gateway
+        run: |
+          ./gateway_check.sh kilometers=120 email="test@example.com" fromLocation="Work" toLocation="Home" activity="commute" firstname="John" lastname="Doe"
+
+      - name: Check log file
+        run: |
+          cat /tmp/gateway_check.log
+          grep "Default gateway matches target. Calling endpoint." /tmp/gateway_check.log
+          grep "Default gateway (192.168.1.1) does not match target (172.16.16.1). Exiting." /tmp/gateway_check.log

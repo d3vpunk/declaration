@@ -1,39 +1,69 @@
 #!/bin/bash
 
-fetch_gateway() {
-  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    ip route | grep default | awk '{print $3}' # Linux
-  elif [[ "$OSTYPE" == "darwin"* ]]; then
-    netstat -nr | grep default | awk '{print $2}' # macOS
-  else
-    return 1
-  fi
+set -euo pipefail
+
+# Mock curl for testing
+if [[ -n "${MOCK_CURL:-}" ]]; then
+  curl() {
+    echo "${MOCK_CURL}"
+  }
+fi
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "/tmp/gateway_check.log"
 }
 
-base_url="https://example.com/register-day"
+fetch_gateway() {
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        ip route | grep default | awk '{print $3}'
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        route -n get default | grep 'gateway' | awk '{print $2}'
+    else
+        log "Unsupported operating system"
+        return 1
+    fi
+}
 
+url_encode() {
+    printf '%s' "$1" | jq -sRr @uri
+}
+
+base_url="https://d.d3vpunk.com/register-day"
 query_params=""
 
+# Build query parameters
 for arg in "$@"; do
-  key="${arg%%=*}"
-  value="${arg#*=}"
-
-  [ -z "$query_params" ] && query_params="?${key}=${value}" || query_params="${query_params}&${key}=${value}"
+    if [[ "$arg" == *"="* ]]; then
+        key="${arg%%=*}"
+        value="${arg#*=}"
+        encoded_value=$(url_encode "$value")
+        query_params="${query_params:+$query_params&}${key}=${encoded_value}"
+    else
+        log "Warning: Skipping invalid parameter: $arg"
+    fi
 done
 
-final_url="${base_url}${query_params}"
+final_url="${base_url}${query_params:+?$query_params}"
 
 target_gateway="172.16.16.1"
-
 gateway=$(fetch_gateway)
 
-echo "Gateway: $gateway"
+if [ $? -ne 0 ]; then
+    log "Failed to fetch gateway. Exiting."
+    exit 1
+fi
 
 if [[ "$gateway" == "$target_gateway" ]]; then
-  echo "Default gateway matches target. Calling endpoint."
-  curl -s "$final_url"
-  exit 0
+    log "Default gateway matches target. Calling endpoint."
+    response=$(curl -s -w "\n%{http_code}" "$final_url")
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+
+    if [[ "$http_code" == "200" ]]; then
+        log "Successfully called endpoint. Response: $body"
+    else
+        log "Failed to call endpoint. HTTP status: $http_code, Response: $body"
+    fi
 else
-  echo "Default gateway ($gateway) does not match target ($target_gateway). Exiting."
-  exit 0
+    log "Default gateway ($gateway) does not match target ($target_gateway). Exiting."
 fi
