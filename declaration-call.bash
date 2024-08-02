@@ -35,5 +35,5 @@ if [[ "$gateway" == "$target_gateway" ]]; then
   exit 0
 else
   echo "Default gateway ($gateway) does not match target ($target_gateway). Exiting."
-  exit 1
+  exit 0
 fi
