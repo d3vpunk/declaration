@@ -2,17 +2,6 @@
 
 set -euo pipefail
 
-# Mock curl for testing
-if [[ -n "${MOCK_CURL:-}" ]]; then
-  curl() {
-    echo "${MOCK_CURL}"
-  }
-fi
-
-log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "/tmp/gateway_check.log"
-}
-
 fetch_gateway() {
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         ip route | grep default | awk '{print $3}'

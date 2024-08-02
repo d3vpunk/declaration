@@ -1,0 +1,63 @@
+name: Test Woon/Werk Reiskosten Declaratie Wizard
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-wizard:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up test environment
+        run: |
+          chmod +x setup_wizard.sh
+          touch gateway_check.sh
+          chmod +x gateway_check.sh
+
+      - name: Run wizard test
+        run: |
+          # Simulate user input
+          echo -e "John\nDoe\n50\nAmsterdam\njohn.doe@example.com\nj\n" | ./setup_wizard.sh
+
+      - name: Verify crontab
+        run: |
+          crontab -l > crontab_content.txt
+          if ! grep -q "gateway_check.sh firstname=\"John\" lastname=\"Doe\" kilometers=50 location=\"Amsterdam\" email=\"john.doe@example.com\"" crontab_content.txt; then
+            echo "Crontab does not contain the expected entry"
+            cat crontab_content.txt
+            exit 1
+          fi
+          if [ $(grep -c "gateway_check.sh" crontab_content.txt) -ne 1 ]; then
+            echo "Crontab contains multiple entries for gateway_check.sh"
+            cat crontab_content.txt
+            exit 1
+          fi
+          echo "Crontab verification successful"
+
+      - name: Run wizard test again (update existing entry)
+        run: |
+          # Simulate user input for update
+          echo -e "Jane\nSmith\n60\nRotterdam\njane.smith@example.com\nj\n" | ./setup_wizard.sh
+
+      - name: Verify updated crontab
+        run: |
+          crontab -l > updated_crontab.txt
+          if ! grep -q "gateway_check.sh firstname=\"Jane\" lastname=\"Smith\" kilometers=60 location=\"Rotterdam\" email=\"jane.smith@example.com\"" updated_crontab.txt; then
+            echo "Crontab does not contain the updated entry"
+            cat updated_crontab.txt
+            exit 1
+          fi
+          if [ $(grep -c "gateway_check.sh" updated_crontab.txt) -ne 1 ]; then
+            echo "Crontab contains multiple entries for gateway_check.sh"
+            cat updated_crontab.txt
+            exit 1
+          fi
+          echo "Updated crontab verification successful"
