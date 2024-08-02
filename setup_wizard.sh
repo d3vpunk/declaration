@@ -30,6 +30,14 @@ vraag_verplicht() {
 # Bepaal het absolute pad naar het script
 script_pad="$(cd "$(dirname "$0")" && pwd)/gateway_check.sh"
 
+# Controleer of gateway_check.sh bestaat en maak het uitvoerbaar
+if [ ! -f "$script_pad" ]; then
+    echo "Fout: $script_pad bestaat niet. Zorg ervoor dat het bestand aanwezig is in dezelfde map als deze wizard."
+    exit 1
+fi
+
+chmod +x "$script_pad"
+
 # Parameters opvragen
 voornaam=$(vraag_verplicht "Voornaam")
 achternaam=$(vraag_verplicht "Achternaam")
