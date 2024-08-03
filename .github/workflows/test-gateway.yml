@@ -2,9 +2,9 @@ name: Test Bash Script
 
 on:
     push:
-        branches: [ master ]
+        branches: [ main ]
     pull_request:
-        branches: [ master ]
+        branches: [ main ]
 
 jobs:
     test:
@@ -27,21 +27,31 @@ jobs:
                   fi
 
             - name: Make script executable
-              run: chmod +x ./gateway_check.sh
+              run: chmod +x ./your_script.sh
 
             - name: Run script without parameters
-              run: ./gateway_check.sh
+              run: ./your_script.sh
 
-            - name: Run script with parameters
-              run: ./gateway_check.sh param1=value1 param2=value2
+            - name: Run script with simple parameters
+              run: ./your_script.sh param1=value1 param2=value2
 
-            - name: Test URL encoding
+            - name: Test URL encoding for unquoted parameter value with spaces
               run: |
-                  output=$(./gateway_check.sh param="value with spaces")
-                  if [[ "$output" == *"param=value%20with%20spaces* ]]; then
-                    echo "URL encoding test passed"
+                  gateway_check.sh=$(./your_script.sh param=value with spaces)
+                  if [[ "$gateway_check.sh" == *"param=value%20with%20spaces"* ]]; then
+                    echo "URL encoding test for unquoted parameter value passed"
                   else
-                    echo "URL encoding test failed"
+                    echo "URL encoding test for unquoted parameter value failed"
+                    exit 1
+                  fi
+
+            - name: Test URL encoding for quoted parameter value with spaces
+              run: |
+                  gateway_check.sh=$(./your_script.sh 'param="value with spaces"')
+                  if [[ "$gateway_check.sh" == *'param="value%20with%20spaces"'* ]]; then
+                    echo "URL encoding test for quoted parameter value passed"
+                  else
+                    echo "URL encoding test for quoted parameter value failed"
                     exit 1
                   fi
 
@@ -52,8 +62,8 @@ jobs:
                   elif [ "$RUNNER_OS" == "macOS" ]; then
                     sudo route delete 172.16.16.1/32
                   fi
-                  output=$(./gateway_check.sh)
-                  if [[ "$output" == *"Default gateway"*"does not match target"* ]]; then
+                  gateway_check.sh=$(./your_script.sh)
+                  if [[ "$gateway_check.sh" == *"Default gateway"*"does not match target"* ]]; then
                     echo "Gateway mismatch test passed"
                   else
                     echo "Gateway mismatch test failed"
