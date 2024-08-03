@@ -1,0 +1,61 @@
+name: Test Bash Script
+
+on:
+    push:
+        branches: [ main ]
+    pull_request:
+        branches: [ main ]
+
+jobs:
+    test:
+        strategy:
+            matrix:
+                os: [ubuntu-latest, macos-latest]
+        runs-on: ${{ matrix.os }}
+        
+        steps:
+            - uses: actions/checkout@v2
+
+            - name: Set up test environment
+              run: |
+                  if [ "$RUNNER_OS" == "Linux" ]; then
+                    sudo ip route add 172.16.16.0/24 dev lo
+                    sudo ip route add 172.16.16.1/32 dev lo
+                  elif [ "$RUNNER_OS" == "macOS" ]; then
+                    sudo route add 172.16.16.0/24 127.0.0.1
+                    sudo route add 172.16.16.1/32 127.0.0.1
+                  fi
+
+            - name: Make script executable
+              run: chmod +x ./gateway_check.sh
+
+            - name: Run script without parameters
+              run: ./gateway_check.sh
+
+            - name: Run script with parameters
+              run: ./gateway_check.sh param1=value1 param2=value2
+
+            - name: Test URL encoding
+              run: |
+                  output=$(./gateway_check.sh "param with spaces=value with spaces")
+                  if [[ "$output" == *"param%20with%20spaces=value%20with%20spaces"* ]]; then
+                    echo "URL encoding test passed"
+                  else
+                    echo "URL encoding test failed"
+                    exit 1
+                  fi
+
+            - name: Test gateway mismatch
+              run: |
+                  if [ "$RUNNER_OS" == "Linux" ]; then
+                    sudo ip route del 172.16.16.1/32
+                  elif [ "$RUNNER_OS" == "macOS" ]; then
+                    sudo route delete 172.16.16.1/32
+                  fi
+                  output=$(./gateway_check.sh)
+                  if [[ "$output" == *"Default gateway"*"does not match target"* ]]; then
+                    echo "Gateway mismatch test passed"
+                  else
+                    echo "Gateway mismatch test failed"
+                    exit 1
+                  fi
