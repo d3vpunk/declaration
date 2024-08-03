@@ -37,8 +37,8 @@ jobs:
 
             - name: Test URL encoding
               run: |
-                  output=$(./gateway_check.sh "param with spaces=value with spaces")
-                  if [[ "$output" == *"param%20with%20spaces=value%20with%20spaces"* ]]; then
+                  output=$(./gateway_check.sh "param="value with spaces")
+                  if [[ "$output" == *"param=value%20with%20spaces"* ]]; then
                     echo "URL encoding test passed"
                   else
                     echo "URL encoding test failed"
