@@ -1,12 +1,14 @@
 #!/bin/bash
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+
 set -euo pipefail
 
 fetch_gateway() {
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        ip route | grep default | awk '{print $3}'
+        /sbin/ip route | grep default | awk '{print $3}'
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-        route -n get default | grep 'gateway' | awk '{print $2}'
+        /sbin/route -n get default | grep 'gateway' | awk '{print $2}'
     else
         echo "Unsupported operating system"
         return 1
